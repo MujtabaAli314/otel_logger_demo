@@ -4,16 +4,18 @@ import (
 	"errors"
 
 	"github.com/kataras/iris/v12"
+	"github.com/oteldemo/logger"
 	"github.com/oteldemo/service1-frontend/types"
 	"github.com/oteldemo/service1-frontend/usecase"
 )
 
 type Controller struct {
 	dashboard usecase.DashboardUsecase
+	logger    *logger.OtelLogger
 }
 
-func New(dashboard usecase.DashboardUsecase) *Controller {
-	return &Controller{dashboard: dashboard}
+func New(dashboard usecase.DashboardUsecase, logger *logger.OtelLogger) *Controller {
+	return &Controller{dashboard: dashboard, logger: logger}
 }
 
 func (c *Controller) Register(app *iris.Application) {

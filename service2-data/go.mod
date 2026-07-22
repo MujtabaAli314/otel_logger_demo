@@ -4,9 +4,12 @@ go 1.25
 
 require (
 	github.com/kataras/iris/v12 v12.2.11
+	github.com/oteldemo/logger v0.0.0-00010101000000-000000000000
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.10
 )
+
+replace github.com/oteldemo/logger => ../logger
 
 require (
 	github.com/BurntSushi/toml v1.3.2 // indirect

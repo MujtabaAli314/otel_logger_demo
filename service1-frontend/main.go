@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"os"
 
 	"github.com/kataras/iris/v12"
+	"github.com/oteldemo/logger"
 	"github.com/oteldemo/service1-frontend/controller"
 	"github.com/oteldemo/service1-frontend/repository"
 	"github.com/oteldemo/service1-frontend/usecase"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
@@ -18,9 +22,18 @@ func main() {
 	fraudClient := repository.NewFraudClient(fraudURL)
 
 	dashboardUC := usecase.NewDashboardUsecase(dataClient, fraudClient)
-
+	otelLogger := new(logger.OtelLogger)
+	otelShutdown, err := otelLogger.SetupOTelSDK(context.Background())
+	if err != nil {
+		return
+	}
+	// Handle shutdown properly so nothing leaks.
+	defer func() {
+		err = errors.Join(err, otelShutdown(context.Background()))
+	}()
 	app := iris.New()
-	controller.New(dashboardUC).Register(app)
+	otelhttp.NewHandler(app, "/")
+	controller.New(dashboardUC, otelLogger).Register(app)
 
 	addr := envOrDefault("PORT", "8080")
 	log.Printf("service1-frontend listening on :%s (data=%s fraud=%s)", addr, dataURL, fraudURL)
