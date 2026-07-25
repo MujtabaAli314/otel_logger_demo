@@ -3,9 +3,11 @@ package repository
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/oteldemo/service1-frontend/types"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // FraudClient abstracts the call the frontend makes to the fraud service
@@ -21,10 +23,12 @@ type assessRequest struct {
 
 type fraudClient struct {
 	baseURL string
+	tracer  trace.Tracer
+	logger  slog.Logger
 }
 
-func NewFraudClient(baseURL string) FraudClient {
-	return &fraudClient{baseURL: baseURL}
+func NewFraudClient(baseURL string, tracer trace.Tracer, logger slog.Logger) FraudClient {
+	return &fraudClient{baseURL: baseURL, tracer: tracer, logger: logger}
 }
 
 func (c *fraudClient) AssessFraud(ctx context.Context, userID uint, txs []types.Transaction) (*types.FraudAssessment, error) {

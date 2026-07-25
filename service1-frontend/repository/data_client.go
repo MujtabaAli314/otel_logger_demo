@@ -3,9 +3,11 @@ package repository
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/oteldemo/service1-frontend/types"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // DataClient abstracts the calls the frontend makes to the data service
@@ -17,10 +19,12 @@ type DataClient interface {
 
 type dataClient struct {
 	baseURL string
+	tracer  trace.Tracer
+	logger  slog.Logger
 }
 
-func NewDataClient(baseURL string) DataClient {
-	return &dataClient{baseURL: baseURL}
+func NewDataClient(baseURL string, tracer trace.Tracer, logger slog.Logger) DataClient {
+	return &dataClient{baseURL: baseURL, tracer: tracer, logger: logger}
 }
 
 func (c *dataClient) GetUser(ctx context.Context, userID uint) (*types.User, error) {
