@@ -10,16 +10,20 @@ package logger
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
+	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -31,7 +35,7 @@ type OtelLogger struct {
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func (logger *OtelLogger) SetupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
+func (logger *OtelLogger) SetupOTelSDK(ctx context.Context, serviceName string) (func(context.Context) error, error) {
 	var shutdownFuncs []func(context.Context) error
 	var err error
 
@@ -57,7 +61,7 @@ func (logger *OtelLogger) SetupOTelSDK(ctx context.Context) (func(context.Contex
 	otel.SetTextMapPropagator(prop)
 
 	// Set up trace provider.
-	tracerProvider, err := logger.NewTracerProvider()
+	tracerProvider, err := logger.NewTracerProvider(ctx, serviceName)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -65,17 +69,17 @@ func (logger *OtelLogger) SetupOTelSDK(ctx context.Context) (func(context.Contex
 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 	otel.SetTracerProvider(tracerProvider)
 
-	// Set up meter provider.
-	meterProvider, err := logger.NewMeterProvider()
-	if err != nil {
-		handleErr(err)
-		return shutdown, err
-	}
-	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
-	otel.SetMeterProvider(meterProvider)
+	// // Set up meter provider.
+	// meterProvider, err := logger.NewMeterProvider()
+	// if err != nil {
+	// 	handleErr(err)
+	// 	return shutdown, err
+	// }
+	// shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
+	// otel.SetMeterProvider(meterProvider)
 
 	// Set up logger provider.
-	loggerProvider, err := logger.NewLoggerProvider()
+	loggerProvider, err := logger.NewLoggerProvider(ctx)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -93,8 +97,20 @@ func (logger *OtelLogger) NewPropagator() propagation.TextMapPropagator {
 	)
 }
 
-func (logger *OtelLogger) NewTracerProvider() (*trace.TracerProvider, error) {
-	traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+func (logger *OtelLogger) NewTracerProvider(ctx context.Context, serviceName string) (*trace.TracerProvider, error) {
+	// traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	traceExporter, err := otlptracegrpc.New(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := resource.New(ctx,
+		resource.WithAttributes(attribute.String("service.name", serviceName)),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +119,7 @@ func (logger *OtelLogger) NewTracerProvider() (*trace.TracerProvider, error) {
 		trace.WithBatcher(traceExporter,
 			// Default is 5s. Set to 1s for demonstrative purposes.
 			trace.WithBatchTimeout(time.Second)),
+		trace.WithResource(res),
 	)
 	logger.TracerProvider = tracerProvider
 	return tracerProvider, nil
@@ -123,15 +140,40 @@ func (logger *OtelLogger) NewMeterProvider() (*metric.MeterProvider, error) {
 	return meterProvider, nil
 }
 
-func (logger *OtelLogger) NewLoggerProvider() (*log.LoggerProvider, error) {
-	logExporter, err := stdoutlog.New(stdoutlog.WithPrettyPrint())
+func (logger *OtelLogger) NewLoggerProvider(ctx context.Context) (*log.LoggerProvider, error) {
+	// logExporter, err := stdoutlog.New(stdoutlog.WithPrettyPrint())
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// loggerProvider := log.NewLoggerProvider(
+	// 	log.WithProcessor(log.NewBatchProcessor(logExporter)),
+	// )
+	// logger.LoggerProvider = loggerProvider
+	// return loggerProvider, nil
+	exp, err := otlploggrpc.New(ctx,
+		otlploggrpc.WithEndpoint("localhost:4319"), // your OTel Collector, not Jaeger, and not Kafka directly
+		otlploggrpc.WithInsecure(),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	loggerProvider := log.NewLoggerProvider(
-		log.WithProcessor(log.NewBatchProcessor(logExporter)),
+	res, err := resource.New(ctx,
+		resource.WithAttributes(attribute.String("service.name", "BFF-LOGGER")),
 	)
-	logger.LoggerProvider = loggerProvider
-	return loggerProvider, nil
+	if err != nil {
+		return nil, err
+	}
+
+	logProvider := log.NewLoggerProvider(
+		log.WithResource(res),
+		log.WithProcessor(log.NewBatchProcessor(exp)),
+	)
+
+	logger.LoggerProvider = logProvider
+
+	slog.SetDefault(otelslog.NewLogger("BFF-LOGGER"))
+
+	return logProvider, nil
 }
