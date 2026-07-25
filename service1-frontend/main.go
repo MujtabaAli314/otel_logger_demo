@@ -33,10 +33,10 @@ func main() {
 		otelslog.WithLoggerProvider(otelLogger.LoggerProvider),
 	)
 
-	dataClient := repository.NewDataClient(dataURL)
-	fraudClient := repository.NewFraudClient(fraudURL)
+	dataClient := repository.NewDataClient(dataURL, *logger)
+	fraudClient := repository.NewFraudClient(fraudURL, *logger)
 
-	dashboardUC := usecase.NewDashboardUsecase(dataClient, fraudClient, tracer, *logger)
+	dashboardUC := usecase.NewDashboardUsecase(dataClient, fraudClient, *logger)
 
 	app := iris.New()
 	// otelhttp.NewHandler(app, "/")

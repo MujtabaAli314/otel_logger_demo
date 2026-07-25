@@ -103,7 +103,10 @@ func (logger *OtelLogger) NewTracerProvider(ctx context.Context, serviceName str
 	// 	return nil, err
 	// }
 
-	traceExporter, err := otlptracegrpc.New(ctx)
+	traceExporter, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithEndpoint("localhost:4317"),
+		otlptracegrpc.WithInsecure(),
+	)
 	if err != nil {
 		return nil, err
 	}
