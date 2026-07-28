@@ -18,13 +18,24 @@ import (
 )
 
 type Logger interface {
+	Setup(context.Context, string) (func(context.Context) error, error)
 	GetTraceProvider() *traceSdk.TracerProvider
 	GetLogProvider() *log.LoggerProvider
-	LogError(span trace.Span, logger *slog.Logger, ctx context.Context, err error, args ...any) error
-	LogWarn(span trace.Span, logger *slog.Logger)
-	LogInfo(logger *slog.Logger, ctx context.Context, msg string, args ...any)
+	GetLogger() *slog.Logger
+	StartSpan(ctx context.Context, name string) (context.Context, trace.Span)
+	LogError(span trace.Span, ctx context.Context, err error, args ...any) error
+	LogWarn(span trace.Span)
+	LogInfo(ctx context.Context, msg string, args ...any)
 }
 
 func NewLogger(cfg *Config) Logger {
+	if cfg == nil {
+		return nil
+	}
+	if cfg.Level == INFOLVL {
+		return new(OtelLogger)
+	} else if cfg.Level == ERRORLVL {
+		return new(ErrorLvlLoger)
+	}
 	return new(OtelLogger)
 }

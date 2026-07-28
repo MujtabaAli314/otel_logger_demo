@@ -2,10 +2,11 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 
+	"github.com/oteldemo/logger"
 	"github.com/oteldemo/service1-frontend/types"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -24,10 +25,10 @@ type assessRequest struct {
 
 type fraudClient struct {
 	baseURL string
-	logger  slog.Logger
+	logger  logger.Logger
 }
 
-func NewFraudClient(baseURL string, logger slog.Logger) FraudClient {
+func NewFraudClient(baseURL string, logger logger.Logger) FraudClient {
 	return &fraudClient{baseURL: baseURL, logger: logger}
 }
 
@@ -40,18 +41,16 @@ func (c *fraudClient) AssessFraud(ctx context.Context, userID uint, txs []types.
 		attribute.String("fraud_service.assess.url", url),
 		attribute.Int("fraud_service.assess.tx_count", len(txs)),
 	)
-	c.logger.InfoContext(ctx, "calling fraud service", "url", url, "user_id", userID, "tx_count", len(txs))
+	c.logger.LogInfo(ctx, "calling fraud service", "url", url, "user_id", userID, "tx_count", len(txs))
 	var assessment types.FraudAssessment
 	body := assessRequest{UserID: userID, Transactions: txs}
 	if err := doJSON(ctx, http.MethodPost, url, body, &assessment); err != nil {
-		span.RecordError(err)
-		c.logger.ErrorContext(ctx, "fraud service assess failed", "url", url, "err", err.Error())
-		return nil, err
+		return nil, c.logger.LogError(span, ctx, errors.New("fraud service assess failed"), "url", url, "err", err.Error())
 	}
 	span.SetAttributes(
 		attribute.String("fraud_service.assess.risk_level", assessment.RiskLevel),
 		attribute.Int("fraud_service.assess.risk_score", assessment.RiskScore),
 	)
-	c.logger.InfoContext(ctx, "fraud service returned assessment", "user_id", userID, "risk_level", assessment.RiskLevel, "risk_score", assessment.RiskScore)
+	c.logger.LogInfo(ctx, "fraud service returned assessment", "user_id", userID, "risk_level", assessment.RiskLevel, "risk_score", assessment.RiskScore)
 	return &assessment, nil
 }

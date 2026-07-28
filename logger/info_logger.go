@@ -39,7 +39,7 @@ type OtelLogger struct {
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func (logger *OtelLogger) SetupOTelSDK(ctx context.Context, serviceName string) (func(context.Context) error, error) {
+func (logger *OtelLogger) Setup(ctx context.Context, serviceName string) (func(context.Context) error, error) {
 	var shutdownFuncs []func(context.Context) error
 	var err error
 
@@ -92,6 +92,10 @@ func (logger *OtelLogger) SetupOTelSDK(ctx context.Context, serviceName string) 
 	global.SetLoggerProvider(loggerProvider)
 
 	return shutdown, err
+}
+
+func (logger *OtelLogger) StartSpan(ctx context.Context, name string) (context.Context, otelTrace.Span) {
+	return logger.TracerProvider.Tracer(name).Start(ctx, name)
 }
 
 func (logger *OtelLogger) NewPropagator() propagation.TextMapPropagator {
@@ -194,12 +198,18 @@ func (logger *OtelLogger) GetLogProvider() *log.LoggerProvider {
 	return logger.LoggerProvider
 }
 
-func (l *OtelLogger) LogError(span otelTrace.Span, logger *slog.Logger, ctx context.Context, err error, args ...any) error {
+func (logger *OtelLogger) GetLogger() *slog.Logger {
+	return otelslog.NewLogger("SERVICE1-CONTROLLER-Logger",
+		otelslog.WithLoggerProvider(logger.GetLogProvider()),
+	)
+}
+
+func (l *OtelLogger) LogError(span otelTrace.Span, ctx context.Context, err error, args ...any) error {
 	span.RecordError(err)
-	logger.ErrorContext(ctx, err.Error(), args...)
+	l.GetLogger().ErrorContext(ctx, err.Error(), args...)
 	return err
 }
-func (l *OtelLogger) LogWarn(span otelTrace.Span, logger *slog.Logger) {}
-func (l *OtelLogger) LogInfo(logger *slog.Logger, ctx context.Context, msg string, args ...any) {
-	logger.InfoContext(ctx, msg, args...)
+func (l *OtelLogger) LogWarn(span otelTrace.Span) {}
+func (l *OtelLogger) LogInfo(ctx context.Context, msg string, args ...any) {
+	l.GetLogger().InfoContext(ctx, msg, args...)
 }

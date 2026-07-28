@@ -11,15 +11,18 @@ import (
 	"github.com/oteldemo/service1-frontend/controller"
 	"github.com/oteldemo/service1-frontend/repository"
 	"github.com/oteldemo/service1-frontend/usecase"
-	"go.opentelemetry.io/contrib/bridges/otelslog"
 )
 
 func main() {
 	dataURL := envOrDefault("DATA_SERVICE_URL", "http://localhost:8081")
 	fraudURL := envOrDefault("FRAUD_SERVICE_URL", "http://localhost:8082")
 
-	otelLogger := new(logger.OtelLogger)
-	otelShutdown, err := otelLogger.SetupOTelSDK(context.Background(), "BFF")
+	cfg := logger.Config{
+		Level: logger.ERRORLVL,
+	}
+
+	otelLogger := logger.NewLogger(&cfg)
+	otelShutdown, err := otelLogger.Setup(context.Background(), "BFF")
 	if err != nil {
 		return
 	}
@@ -27,21 +30,16 @@ func main() {
 	defer func() {
 		err = errors.Join(err, otelShutdown(context.Background()))
 	}()
-	traceProvider := otelLogger.TracerProvider
-	tracer := traceProvider.Tracer("SERVICE1-CONTROLLER-Tracer")
-	logger := otelslog.NewLogger("SERVICE1-CONTROLLER-Logger",
-		otelslog.WithLoggerProvider(otelLogger.LoggerProvider),
-	)
 
-	dataClient := repository.NewDataClient(dataURL, *logger)
-	fraudClient := repository.NewFraudClient(fraudURL, *logger)
+	dataClient := repository.NewDataClient(dataURL, otelLogger)
+	fraudClient := repository.NewFraudClient(fraudURL, otelLogger)
 
-	dashboardUC := usecase.NewDashboardUsecase(dataClient, fraudClient, *logger)
-	txUC := usecase.NewTransactionUsecase(dataClient, *logger)
+	dashboardUC := usecase.NewDashboardUsecase(dataClient, fraudClient, otelLogger)
+	txUC := usecase.NewTransactionUsecase(dataClient, otelLogger)
 
 	app := iris.New()
 	// otelhttp.NewHandler(app, "/")
-	controller.New(dashboardUC, txUC, tracer, *logger).Register(app)
+	controller.New(dashboardUC, txUC, otelLogger).Register(app)
 
 	addr := envOrDefault("PORT", "8080")
 	log.Printf("service1-frontend listening on :%s (data=%s fraud=%s)", addr, dataURL, fraudURL)

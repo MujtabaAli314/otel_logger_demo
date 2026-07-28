@@ -27,7 +27,7 @@ type ErrorLvlLoger struct {
 	LoggerProvider *log.LoggerProvider
 }
 
-func (logger *ErrorLvlLoger) SetupOTelSDK(ctx context.Context, serviceName string) (func(context.Context) error, error) {
+func (logger *ErrorLvlLoger) Setup(ctx context.Context, serviceName string) (func(context.Context) error, error) {
 	var shutdownFuncs []func(context.Context) error
 	var err error
 
@@ -64,6 +64,10 @@ func (logger *ErrorLvlLoger) SetupOTelSDK(ctx context.Context, serviceName strin
 	global.SetLoggerProvider(loggerProvider)
 
 	return shutdown, err
+}
+
+func (logger *ErrorLvlLoger) StartSpan(ctx context.Context, name string) (context.Context, otelTrace.Span) {
+	return logger.TracerProvider.Tracer(name).Start(ctx, name)
 }
 
 func (logger *ErrorLvlLoger) NewPropagator() propagation.TextMapPropagator {
@@ -149,14 +153,20 @@ func (logger *ErrorLvlLoger) GetLogProvider() *log.LoggerProvider {
 	return logger.LoggerProvider
 }
 
-func (l *ErrorLvlLoger) LogError(span otelTrace.Span, logger *slog.Logger, ctx context.Context, err error, args ...any) error {
+func (logger *ErrorLvlLoger) GetLogger() *slog.Logger {
+	return otelslog.NewLogger("SERVICE1-CONTROLLER-Logger",
+		otelslog.WithLoggerProvider(logger.GetLogProvider()),
+	)
+}
+
+func (l *ErrorLvlLoger) LogError(span otelTrace.Span, ctx context.Context, err error, args ...any) error {
 	span.RecordError(err)
-	logger.ErrorContext(ctx, err.Error(), args...)
+	l.GetLogger().ErrorContext(ctx, err.Error(), args...)
 	return err
 }
-func (l *ErrorLvlLoger) LogWarn(span otelTrace.Span, logger *slog.Logger) {
+func (l *ErrorLvlLoger) LogWarn(span otelTrace.Span) {
 	return
 }
-func (l *ErrorLvlLoger) LogInfo(logger *slog.Logger, ctx context.Context, err error, args ...any) {
+func (l *ErrorLvlLoger) LogInfo(ctx context.Context, msg string, args ...any) {
 	return
 }

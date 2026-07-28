@@ -2,8 +2,8 @@ package usecase
 
 import (
 	"context"
-	"log/slog"
 
+	"github.com/oteldemo/logger"
 	"github.com/oteldemo/service1-frontend/repository"
 	"github.com/oteldemo/service1-frontend/types"
 	"go.opentelemetry.io/otel/attribute"
@@ -18,10 +18,10 @@ type TransactionUsecase interface {
 
 type transactionUsecase struct {
 	data   repository.DataClient
-	logger slog.Logger
+	logger logger.Logger
 }
 
-func NewTransactionUsecase(data repository.DataClient, logger slog.Logger) TransactionUsecase {
+func NewTransactionUsecase(data repository.DataClient, logger logger.Logger) TransactionUsecase {
 	return &transactionUsecase{data: data, logger: logger}
 }
 
@@ -31,17 +31,16 @@ func (u *transactionUsecase) CreateTransaction(ctx context.Context, params types
 	// context to the repository.
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.Int("usecase.user_id", int(params.UserID)))
-	u.logger.InfoContext(ctx, "create transaction usecase", "user_id", params.UserID, "amount", params.Amount)
+	u.logger.LogInfo(ctx, "create transaction usecase", "user_id", params.UserID, "amount", params.Amount)
 
 	tx, err := u.data.CreateTransaction(ctx, params.UserID, params)
 	if err != nil {
-		span.RecordError(err)
-		u.logger.ErrorContext(ctx, "usecase create transaction failed", "err", err.Error())
+		// no need to log the error here since it is triggered by the repo and the usecase simple returns it
 		return nil, err
 	}
 	// the following setattr may be included in the logs only, no need for the span. tx.id can be included in the metadata of
 	// the error message in the case of errors.
 	span.SetAttributes(attribute.Int("usecase.tx_id", int(tx.ID)))
-	u.logger.InfoContext(ctx, "transaction created", "tx_id", tx.ID)
+	u.logger.LogInfo(ctx, "transaction created", "tx_id", tx.ID)
 	return tx, nil
 }
