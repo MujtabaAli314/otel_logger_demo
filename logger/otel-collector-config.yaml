@@ -10,15 +10,23 @@ exporters:
     database: otel
     logs_table_name: otel_logs
     create_schema: true
-    ttl: 720h          # 30 days — adjust to match your retention plan
+    ttl: 720h # 30 days — adjust to match your retention plan
     compress: lz4
     async_insert: true
     timeout: 5s
     retry_on_failure:
       enabled: true
 
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
 service:
   pipelines:
     logs:
       receivers: [otlp]
       exporters: [clickhouse]
+    traces:
+      receivers: [otlp]
+      exporters: [otlp/jaeger]

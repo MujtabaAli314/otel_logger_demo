@@ -41,11 +41,15 @@ services:
 
   clickhouse:
     image: clickhouse/clickhouse-server:latest
-    container_name: oteldemo_clickhouse
+    container_name: clickhouse
     environment:
       # Pre-creates the database on first boot, so the collector's
       # `create_schema: true` only ever has to create tables, not the DB itself.
       CLICKHOUSE_DB: otel
+      # Without CLICKHOUSE_USER/PASSWORD/DEFAULT_ACCESS_MANAGEMENT set, the
+      # official image disables network access for the default user entirely —
+      # this opts back into the old "no password, network OK" dev behavior.
+      CLICKHOUSE_SKIP_USER_SETUP: "1"
     ports:
       - "8123:8123" # HTTP interface
       - "9000:9000" # native protocol

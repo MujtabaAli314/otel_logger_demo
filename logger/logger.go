@@ -155,7 +155,7 @@ func (logger *OtelLogger) NewLoggerProvider(ctx context.Context) (*log.LoggerPro
 	// logger.LoggerProvider = loggerProvider
 	// return loggerProvider, nil
 	exp, err := otlploggrpc.New(ctx,
-		otlploggrpc.WithEndpoint("localhost:4319"), // your OTel Collector, not Jaeger, and not Kafka directly
+		otlploggrpc.WithEndpoint("localhost:4317"), // your OTel Collector, not Jaeger, and not Kafka directly
 		otlploggrpc.WithInsecure(),
 	)
 	if err != nil {
