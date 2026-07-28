@@ -9,6 +9,7 @@ package logger
 // Sorry for that (or you are welcome)
 
 import (
+	"context"
 	"log/slog"
 
 	"go.opentelemetry.io/otel/sdk/log"
@@ -19,9 +20,9 @@ import (
 type Logger interface {
 	GetTraceProvider() *traceSdk.TracerProvider
 	GetLogProvider() *log.LoggerProvider
-	LogError(span *trace.Span, logger *slog.Logger)
-	LogWarn(span *trace.Span, logger *slog.Logger)
-	LogInfo(span *trace.Span, logger *slog.Logger)
+	LogError(span trace.Span, logger *slog.Logger, ctx context.Context, err error, args ...any) error
+	LogWarn(span trace.Span, logger *slog.Logger)
+	LogInfo(logger *slog.Logger, ctx context.Context, msg string, args ...any)
 }
 
 func NewLogger(cfg *Config) Logger {

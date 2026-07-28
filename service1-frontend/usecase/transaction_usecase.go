@@ -39,6 +39,8 @@ func (u *transactionUsecase) CreateTransaction(ctx context.Context, params types
 		u.logger.ErrorContext(ctx, "usecase create transaction failed", "err", err.Error())
 		return nil, err
 	}
+	// the following setattr may be included in the logs only, no need for the span. tx.id can be included in the metadata of
+	// the error message in the case of errors.
 	span.SetAttributes(attribute.Int("usecase.tx_id", int(tx.ID)))
 	u.logger.InfoContext(ctx, "transaction created", "tx_id", tx.ID)
 	return tx, nil
