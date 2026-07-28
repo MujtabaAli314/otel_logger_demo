@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/oteldemo/service1-frontend/types"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var defaultHTTPClient = &http.Client{Timeout: 10 * time.Second}
@@ -42,6 +43,9 @@ func IsNotFound(err error) bool {
 // `out` (when non-nil).
 func doJSON(ctx context.Context, method, fullURL string, in any, out any) error {
 	var bodyReader *bytes.Reader
+	span := trace.SpanFromContext(ctx)
+	traceId := span.SpanContext().TraceID()
+	spanId := span.SpanContext().SpanID()
 	if in != nil {
 		b, err := json.Marshal(in)
 		if err != nil {
@@ -57,6 +61,8 @@ func doJSON(ctx context.Context, method, fullURL string, in any, out any) error 
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("traceID", traceId.String())
+	req.Header.Set("spanID", spanId.String())
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

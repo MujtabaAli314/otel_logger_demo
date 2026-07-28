@@ -1,18 +1,22 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"os"
 	"time"
 
 	"github.com/kataras/iris/v12"
+	"github.com/oteldemo/logger"
 	"github.com/oteldemo/service2-data/controller"
 	"github.com/oteldemo/service2-data/repository"
 	"github.com/oteldemo/service2-data/types"
 	"github.com/oteldemo/service2-data/usecase"
+	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 func main() {
@@ -20,14 +24,29 @@ func main() {
 	migrate(db)
 	seed(db)
 
+	otelLogger := new(logger.OtelLogger)
+	otelShutdown, err := otelLogger.SetupOTelSDK(context.Background(), "DATA")
+	if err != nil {
+		log.Fatalf("failed to set up otel sdk: %v", err)
+	}
+	// Handle shutdown properly so nothing leaks.
+	defer func() {
+		err = errors.Join(err, otelShutdown(context.Background()))
+	}()
+
+	tracer := otelLogger.TracerProvider.Tracer("SERVICE2-CONTROLLER-Tracer")
+	slogLogger := otelslog.NewLogger("SERVICE2-CONTROLLER-Logger",
+		otelslog.WithLoggerProvider(otelLogger.LoggerProvider),
+	)
+
 	userRepo := repository.NewUserRepository(db)
-	txRepo := repository.NewTransactionRepository(db)
+	txRepo := repository.NewTransactionRepository(db, *slogLogger)
 
 	userUC := usecase.NewUserUsecase(userRepo)
-	txUC := usecase.NewTransactionUsecase(txRepo)
+	txUC := usecase.NewTransactionUsecase(txRepo, *slogLogger)
 
 	app := iris.New()
-	controller.NewController(userUC, txUC).Register(app)
+	controller.NewController(userUC, txUC, tracer, *slogLogger).Register(app)
 
 	addr := envOrDefault("PORT", "8081")
 	log.Printf("service2-data listening on :%s", addr)
@@ -46,15 +65,15 @@ func mustConnectDB() *gorm.DB {
 	dsn := "host=" + host + " port=" + port + " user=" + user +
 		" password=" + pass + " dbname=" + name + " sslmode=disable TimeZone=UTC"
 
-	gormLogLevel := logger.Silent
+	gormLogLevel := gormlogger.Silent
 	if os.Getenv("DB_LOG") == "1" {
-		gormLogLevel = logger.Info
+		gormLogLevel = gormlogger.Info
 	}
 
 	var db *gorm.DB
 	var err error
 	for attempt := 1; attempt <= 30; attempt++ {
-		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(gormLogLevel)})
+		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: gormlogger.Default.LogMode(gormLogLevel)})
 		if err == nil {
 			if sqlDB, pingErr := db.DB(); pingErr == nil {
 				if pErr := sqlDB.Ping(); pErr == nil {

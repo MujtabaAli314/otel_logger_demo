@@ -1,0 +1,6 @@
+- Add trace and span ids to the header to be communicated between services
+- Be careful with the parent id
+- Better error handling, e.g. if a repo records an error within a span, there is no need to the usecase record
+- Better strcuturing. Abstract the otel stuff so a single function call to our logger, for example, writes to the span and
+	the logger.
+- Configuration

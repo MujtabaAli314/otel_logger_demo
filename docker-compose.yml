@@ -11,12 +11,84 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U oteldemo"]
       interval: 5s
       timeout: 3s
       retries: 10
 
+  # postgres:
+  #     image: postgres:16-alpine
+  #     container_name: postgres
+  #     environment:
+  #       POSTGRES_USER: oteldemo
+  #       POSTGRES_PASSWORD: oteldemo
+  #       POSTGRES_DB: FIN   # matches the "-d FIN" in schema.sql/seed.sql
+  #     ports:
+  #       - "5432:5432"
+  #     volumes:
+  #       - postgres-data:/var/lib/postgresql/data
+  #       - ./postgres-init:/docker-entrypoint-initdb.d
+  #     healthcheck:
+  #       test: ["CMD-SHELL", "pg_isready -U oteldemo -d oteldemo"]
+  #       interval: 5s
+  #       timeout: 5s
+  #       retries: 5
+  #     networks:
+  #       - oteldemo
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: oteldemo_clickhouse
+    environment:
+      # Pre-creates the database on first boot, so the collector's
+      # `create_schema: true` only ever has to create tables, not the DB itself.
+      CLICKHOUSE_DB: otel
+    ports:
+      - "8123:8123" # HTTP interface
+      - "9000:9000" # native protocol
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - oteldemo
+
+  jaeger:
+    image: jaegertracing/jaeger:latest
+    container_name: oteldemo_jaeger
+    ports:
+      - "16686:16686" # UI only — OTLP stays internal; only the Collector talks to Jaeger directly
+    networks:
+      - oteldemo
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.143.1
+    container_name: oteldemo_otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./logger/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - "4317:4317" # OTLP gRPC — every service's exporter (traces AND logs) points here now
+      - "4318:4318" # OTLP HTTP
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    networks:
+      - oteldemo
+
+networks:
+  oteldemo:
+    driver: bridge
+
 volumes:
-  pgdata:
+  postgres-data:
+  clickhouse-data:
