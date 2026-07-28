@@ -37,10 +37,11 @@ func main() {
 	fraudClient := repository.NewFraudClient(fraudURL, *logger)
 
 	dashboardUC := usecase.NewDashboardUsecase(dataClient, fraudClient, *logger)
+	txUC := usecase.NewTransactionUsecase(dataClient, *logger)
 
 	app := iris.New()
 	// otelhttp.NewHandler(app, "/")
-	controller.New(dashboardUC, tracer, *logger).Register(app)
+	controller.New(dashboardUC, txUC, tracer, *logger).Register(app)
 
 	addr := envOrDefault("PORT", "8080")
 	log.Printf("service1-frontend listening on :%s (data=%s fraud=%s)", addr, dataURL, fraudURL)

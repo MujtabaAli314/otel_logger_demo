@@ -38,6 +38,17 @@ func IsNotFound(err error) bool {
 	return false
 }
 
+// StatusCode returns the downstream HTTP status code carried by err, or 0
+// if err is not a downstream httpError. Callers can use it to forward the
+// appropriate response code to the client.
+func StatusCode(err error) int {
+	var he *httpError
+	if errors.As(err, &he) {
+		return he.status
+	}
+	return 0
+}
+
 // doJSON performs an HTTP request against a downstream service, sending
 // `in` as the JSON body (when non-nil) and decoding the response into
 // `out` (when non-nil).

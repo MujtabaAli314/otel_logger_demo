@@ -16,6 +16,7 @@ import (
 type DataClient interface {
 	GetUser(ctx context.Context, userID uint) (*types.User, error)
 	GetTransactions(ctx context.Context, userID uint) ([]types.Transaction, error)
+	CreateTransaction(ctx context.Context, userID uint, params types.CreateTransactionParams) (*types.Transaction, error)
 }
 
 type dataClient struct {
@@ -59,4 +60,37 @@ func (c *dataClient) GetTransactions(ctx context.Context, userID uint) ([]types.
 	span.SetAttributes(attribute.Int("data_service.get_transactions.count", len(txs)))
 	c.logger.InfoContext(ctx, "data service returned transactions", "user_id", userID, "count", len(txs))
 	return txs, nil
+}
+
+func (c *dataClient) CreateTransaction(ctx context.Context, userID uint, params types.CreateTransactionParams) (*types.Transaction, error) {
+	url := fmt.Sprintf("%s/api/v1/users/%d/transactions", c.baseURL, userID)
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(
+		attribute.String("data_service.create_transaction.url", url),
+		attribute.Float64("data_service.create_transaction.amount", params.Amount),
+	)
+	c.logger.InfoContext(ctx, "calling data service", "op", "create_transaction", "url", url, "user_id", userID, "amount", params.Amount)
+
+	body := struct {
+		Amount      float64 `json:"amount"`
+		Currency    string  `json:"currency"`
+		Type        string  `json:"type"`
+		Merchant    string  `json:"merchant"`
+		Description string  `json:"description"`
+	}{
+		Amount:      params.Amount,
+		Currency:    params.Currency,
+		Type:        params.Type,
+		Merchant:    params.Merchant,
+		Description: params.Description,
+	}
+	var tx types.Transaction
+	if err := doJSON(ctx, http.MethodPost, url, body, &tx); err != nil {
+		span.RecordError(err)
+		c.logger.ErrorContext(ctx, "data service create_transaction failed", "url", url, "err", err.Error())
+		return nil, err
+	}
+	span.SetAttributes(attribute.Int("data_service.create_transaction.tx_id", int(tx.ID)))
+	c.logger.InfoContext(ctx, "data service created transaction", "tx_id", tx.ID)
+	return &tx, nil
 }

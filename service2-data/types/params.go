@@ -13,3 +13,14 @@ type GetTransactionsParams struct {
 	Limit  int
 	Offset int
 }
+
+// CreateTransactionParams is the input required to create a new
+// transaction.
+type CreateTransactionParams struct {
+	UserID      uint
+	Amount      float64
+	Currency    string
+	Type        TransactionType
+	Merchant    string
+	Description string
+}
