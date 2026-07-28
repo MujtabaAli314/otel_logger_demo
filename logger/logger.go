@@ -25,6 +25,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
+	otelTrace "go.opentelemetry.io/otel/trace"
 )
 
 type OtelLogger struct {
@@ -180,3 +181,16 @@ func (logger *OtelLogger) NewLoggerProvider(ctx context.Context) (*log.LoggerPro
 
 	return logProvider, nil
 }
+
+// Implementing the logger interface
+func (logger *OtelLogger) GetTraceProvider() *trace.TracerProvider {
+	return logger.TracerProvider
+}
+
+func (logger *OtelLogger) GetLogProvider() *log.LoggerProvider {
+	return logger.LoggerProvider
+}
+
+func (l *OtelLogger) LogError(span *otelTrace.Span, logger *slog.Logger) {}
+func (l *OtelLogger) LogWarn(span *otelTrace.Span, logger *slog.Logger)  {}
+func (l *OtelLogger) LogInfo(span *otelTrace.Span, logger *slog.Logger)  {}
