@@ -24,6 +24,7 @@ type Logger interface {
 	GetLogger() *slog.Logger
 	StartSpan(ctx context.Context, name string) (context.Context, trace.Span)
 	LogError(span trace.Span, ctx context.Context, err error, args ...any) error
+	LogErrorMsg(span trace.Span, ctx context.Context, msg Message) error
 	LogWarn(span trace.Span)
 	LogInfo(ctx context.Context, msg string, args ...any)
 }
@@ -38,4 +39,26 @@ func NewLogger(cfg *Config) Logger {
 		return new(ErrorLvlLoger)
 	}
 	return new(OtelLogger)
+}
+
+type MsgType int
+
+const (
+	ERROR_MSG_TYPE = iota
+	WARN_MSG_TYPE
+	INTO_MSG_TYPE
+)
+
+type Message struct {
+	Type     MsgType        `json:"Type"`
+	Msg      string         `json:"Message"`
+	Code     string         `json:"Code"`
+	Ref      string         `json:"Ref"`
+	MetaInfo map[string]any `json:"MetaInfo"`
+}
+
+func (msg Message) Stringify() string {
+	return "Code: " + msg.Code +
+		"\tRef: " + msg.Ref +
+		"\tMsg: " + msg.Msg
 }

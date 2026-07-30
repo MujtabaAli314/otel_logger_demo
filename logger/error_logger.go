@@ -164,6 +164,13 @@ func (l *ErrorLvlLoger) LogError(span otelTrace.Span, ctx context.Context, err e
 	l.GetLogger().ErrorContext(ctx, err.Error(), args...)
 	return err
 }
+
+func (l *ErrorLvlLoger) LogErrorMsg(span otelTrace.Span, ctx context.Context, msg Message) error {
+	span.RecordError(errors.New(msg.Stringify()))
+	l.GetLogger().ErrorContext(ctx, msg.Stringify(), "meta_info", msg.MetaInfo)
+	return errors.New(msg.Stringify())
+}
+
 func (l *ErrorLvlLoger) LogWarn(span otelTrace.Span) {
 	return
 }

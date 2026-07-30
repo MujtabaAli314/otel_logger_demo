@@ -209,6 +209,13 @@ func (l *OtelLogger) LogError(span otelTrace.Span, ctx context.Context, err erro
 	l.GetLogger().ErrorContext(ctx, err.Error(), args...)
 	return err
 }
+
+func (l *OtelLogger) LogErrorMsg(span otelTrace.Span, ctx context.Context, msg Message) error {
+	span.RecordError(errors.New(msg.Stringify()))
+	l.GetLogger().ErrorContext(ctx, msg.Stringify(), "meta_info", msg.MetaInfo)
+	return errors.New(msg.Stringify())
+}
+
 func (l *OtelLogger) LogWarn(span otelTrace.Span) {}
 func (l *OtelLogger) LogInfo(ctx context.Context, msg string, args ...any) {
 	l.GetLogger().InfoContext(ctx, msg, args...)

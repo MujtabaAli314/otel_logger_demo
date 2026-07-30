@@ -66,17 +66,31 @@ func (u *dashboardUsecase) GetDashboard(ctx context.Context, params types.GetDas
 	if uErr != nil {
 		if repository.IsNotFound(uErr) {
 			// For the following error I think it is better recorded within the repo (See the comment below)
-			u.logger.LogError(span, ctx, errors.New("usecase calling repo isnotfound and got an error"), "user_id", params.UserID)
-			span.SetAttributes(attribute.KeyValue{Key: "ERROR-01", Value: attribute.StringValue(uErr.Error())})
-			return nil, ErrUserNotFound
+			// u.logger.LogError(span, ctx, errors.New("usecase calling repo isnotfound and got an error"), "user_id", params.UserID)
+			return nil, u.logger.LogErrorMsg(span, ctx, logger.Message{
+				Code:     "DASHBOARD-USECASE-O1",
+				Msg:      "usecase calling repo isnotfound and got an error" + tErr.Error(),
+				Ref:      "DASHBOARD-USECASE-GetDashboard",
+				MetaInfo: map[string]any{"user_id": params.UserID},
+			})
 		}
 		// Here is the opposite case where there is no call to the repo so we should register the error here
-		u.logger.LogError(span, ctx, errors.New("usecase throwing an error"+uErr.Error()))
-		return nil, uErr
+		// u.logger.LogError(span, ctx, errors.New("usecase throwing an error"+uErr.Error()))
+		return nil, u.logger.LogErrorMsg(span, ctx, logger.Message{
+			Code:     "DASHBOARD-USECASE-O2",
+			Msg:      "usecase throwing an error" + uErr.Error(),
+			Ref:      "DASHBOARD-USECASE-GetDashboard",
+			MetaInfo: map[string]any{"user_id": params.UserID},
+		})
 	}
 	if tErr != nil {
-		u.logger.LogError(span, ctx, errors.New("usecase throwing an error"+tErr.Error()))
-		return nil, tErr
+		// u.logger.LogError(span, ctx, errors.New("usecase throwing an error"+tErr.Error()))
+		return nil, u.logger.LogErrorMsg(span, ctx, logger.Message{
+			Code:     "DASHBOARD-USECASE-O3",
+			Msg:      "usecase throwing an error" + tErr.Error(),
+			Ref:      "DASHBOARD-USECASE-GetDashboard",
+			MetaInfo: map[string]any{"user_id": params.UserID},
+		})
 	}
 
 	span.SetAttributes(attribute.Int("usecase.tx_count", len(txs)))
@@ -84,8 +98,13 @@ func (u *dashboardUsecase) GetDashboard(ctx context.Context, params types.GetDas
 
 	assessment, err := u.fraud.AssessFraud(ctx, params.UserID, txs)
 	if err != nil {
-		u.logger.LogError(span, ctx, errors.New("usecase throwing an error"+err.Error()))
-		return nil, err
+		// u.logger.LogError(span, ctx, errors.New("usecase throwing an error"+err.Error()))
+		return nil, u.logger.LogErrorMsg(span, ctx, logger.Message{
+			Code:     "DASHBOARD-USECASE-O4",
+			Msg:      "usecase throwing an error" + err.Error(),
+			Ref:      "DASHBOARD-USECASE-GetDashboard",
+			MetaInfo: map[string]any{"user_id": params.UserID},
+		})
 	}
 
 	span.SetAttributes(
