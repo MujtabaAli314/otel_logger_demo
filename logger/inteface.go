@@ -62,3 +62,27 @@ func (msg Message) Stringify() string {
 		"\tRef: " + msg.Ref +
 		"\tMsg: " + msg.Msg
 }
+
+// To mimic our coerr, meta_info to be added
+type Coerr struct {
+	Msg  string `json:"Message"`
+	Code string `json:"Code"`
+	Ref  string `json:"Ref"`
+}
+
+func (err Coerr) Error() string {
+	return err.Msg
+}
+
+func ExeAngLog[paramT, respT any](l Logger, span trace.Span, ctx context.Context, callee func(context.Context, paramT) (*respT, *Coerr), params paramT) (*respT, error) {
+	res, err := callee(ctx, params)
+	if err != nil {
+		l.LogErrorMsg(span, ctx, Message{
+			Code: err.Code,
+			Msg:  err.Msg,
+			Ref:  err.Ref,
+		})
+		return nil, err
+	}
+	return res, nil
+}

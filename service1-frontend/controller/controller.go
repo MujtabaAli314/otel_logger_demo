@@ -91,7 +91,8 @@ func (c *Controller) CreateTransaction(ctx iris.Context) {
 	}
 	c.logger.LogInfo(spanCtx, "create transaction request received", "user_id", id, "amount", body.Amount)
 
-	tx, err := c.txs.CreateTransaction(spanCtx, types.CreateTransactionParams{
+	// tx, cerr := c.logger.ExeAndLog(span, spanCtx, c.txs.CreateTransaction, uint(id), body.Amount, body.Currency, body.Type, body.Merchant, body.Description)
+	tx, cerr := logger.ExeAngLog(c.logger, span, spanCtx, c.txs.CreateTransaction, types.CreateTransactionParams{
 		UserID:      uint(id),
 		Amount:      body.Amount,
 		Currency:    body.Currency,
@@ -99,13 +100,21 @@ func (c *Controller) CreateTransaction(ctx iris.Context) {
 		Merchant:    body.Merchant,
 		Description: body.Description,
 	})
-	if err != nil {
+	// tx, err := c.txs.CreateTransaction(spanCtx, types.CreateTransactionParams{
+	// 	UserID:      uint(id),
+	// 	Amount:      body.Amount,
+	// 	Currency:    body.Currency,
+	// 	Type:        body.Type,
+	// 	Merchant:    body.Merchant,
+	// 	Description: body.Description,
+	// })
+	if cerr != nil {
 		status := iris.StatusInternalServerError
 		if sc := repository.StatusCode(err); sc >= 400 && sc < 500 {
 			status = sc
 		}
 		ctx.StatusCode(status)
-		_ = ctx.JSON(types.ErrorResponse{Error: "internal_error", Message: err.Error()})
+		_ = ctx.JSON(types.ErrorResponse{Error: "internal_error", Message: cerr.Error()})
 		c.logger.LogError(span, spanCtx, errors.New("create transaction failed"), "user_id", id, "err", err.Error())
 		return
 	}

@@ -10,7 +10,9 @@ package logger
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"reflect"
 	"time"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -219,4 +221,40 @@ func (l *OtelLogger) LogErrorMsg(span otelTrace.Span, ctx context.Context, msg M
 func (l *OtelLogger) LogWarn(span otelTrace.Span) {}
 func (l *OtelLogger) LogInfo(ctx context.Context, msg string, args ...any) {
 	l.GetLogger().InfoContext(ctx, msg, args...)
+}
+
+func (l *OtelLogger) ExeAndLog(span otelTrace.Span, ctx context.Context, callee func(...any) (any, *Coerr), args ...any) (result any, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic calling function: %v", r)
+		}
+	}()
+
+	fv := reflect.ValueOf(callee)
+	if fv.Kind() != reflect.Func {
+		return nil, fmt.Errorf("not a function")
+	}
+
+	in := make([]reflect.Value, len(args))
+	for i, a := range args {
+		in[i] = reflect.ValueOf(a)
+	}
+
+	out := fv.Call(in)
+	if len(out) == 0 {
+		return nil, nil
+	}
+
+	last := out[len(out)-1]
+	if last.Type().Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+		if !last.IsNil() {
+			err = last.Interface().(error)
+		}
+		if len(out) > 1 {
+			result = out[0].Interface()
+		}
+		return result, err
+	}
+
+	return out[0].Interface(), nil
 }

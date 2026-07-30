@@ -83,8 +83,10 @@ func (c *dataClient) CreateTransaction(ctx context.Context, userID uint, params 
 	}
 	var tx types.Transaction
 	if err := doJSON(ctx, http.MethodPost, url, body, &tx); err != nil {
-		return nil, c.logger.LogError(span, ctx, errors.New("data service create_transaction failed"), "url", url, "err", err.Error())
+		// return nil, c.logger.LogError(span, ctx, errors.New("data service create_transaction failed"), "url", url, "err", err.Error())
+		return nil, err
 	}
+	return nil, errors.New("CREATE TRANSACTION FAILED!!!!!!!!")
 	span.SetAttributes(attribute.Int("data_service.create_transaction.tx_id", int(tx.ID)))
 	c.logger.LogInfo(ctx, "data service created transaction", "tx_id", tx.ID)
 	return &tx, nil

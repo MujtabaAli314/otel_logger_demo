@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"time"
 
+	"reflect"
+	"fmt"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -177,3 +179,52 @@ func (l *ErrorLvlLoger) LogWarn(span otelTrace.Span) {
 func (l *ErrorLvlLoger) LogInfo(ctx context.Context, msg string, args ...any) {
 	return
 }
+
+func (l *ErrorLvlLoger) ExeAndLog(span otelTrace.Span, ctx context.Context, callee func(...any) (any, *Coerr), args ...any) (result any, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic calling function: %v", r)
+		}
+	}()
+
+	fv := reflect.ValueOf(callee)
+	if fv.Kind() != reflect.Func {
+		return nil, fmt.Errorf("not a function")
+	}
+
+	in := make([]reflect.Value, len(args))
+	for i, a := range args {
+		in[i] = reflect.ValueOf(a)
+	}
+
+	out := fv.Call(in)
+	if len(out) == 0 {
+		return nil, nil
+	}
+
+	last := out[len(out)-1]
+	if last.Type().Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+		if !last.IsNil() {
+			err = last.Interface().(error)
+		}
+		if len(out) > 1 {
+			result = out[0].Interface()
+		}
+		return result, err
+	}
+
+	return out[0].Interface(), nil
+}
+
+
+// func (l *ErrorLvlLoger) ExeAndLog(span otelTrace.Span, ctx context.Context, callee func(...any) (any, *Coerr), args ...any) (any, *Coerr) {
+// 	res, err := callee(args)
+// 	if err != nil {
+// 		l.LogErrorMsg(span, ctx, Message{
+// 			Code: err.Code,
+// 			Msg:  err.Msg,
+// 			Ref:  err.Ref,
+// 		})
+// 	}
+// 	return res, nil
+// }

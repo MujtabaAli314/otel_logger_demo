@@ -13,7 +13,7 @@ import (
 // TransactionUsecase contains the business rules around creating
 // transactions through the data service.
 type TransactionUsecase interface {
-	CreateTransaction(ctx context.Context, params types.CreateTransactionParams) (*types.Transaction, error)
+	CreateTransaction(ctx context.Context, params types.CreateTransactionParams) (*types.Transaction, *logger.Coerr)
 }
 
 type transactionUsecase struct {
@@ -25,7 +25,7 @@ func NewTransactionUsecase(data repository.DataClient, logger logger.Logger) Tra
 	return &transactionUsecase{data: data, logger: logger}
 }
 
-func (u *transactionUsecase) CreateTransaction(ctx context.Context, params types.CreateTransactionParams) (*types.Transaction, error) {
+func (u *transactionUsecase) CreateTransaction(ctx context.Context, params types.CreateTransactionParams) (*types.Transaction, *logger.Coerr) {
 	// The span is created by the controller and threaded down via the
 	// context. The usecase records to that same span and forwards the
 	// context to the repository.
@@ -36,7 +36,11 @@ func (u *transactionUsecase) CreateTransaction(ctx context.Context, params types
 	tx, err := u.data.CreateTransaction(ctx, params.UserID, params)
 	if err != nil {
 		// no need to log the error here since it is triggered by the repo and the usecase simple returns it
-		return nil, err
+		return nil, &logger.Coerr{
+			Msg:  err.Error(),
+			Code: "CREATE-TRANSACTION-00",
+			Ref:  "CREATE-TRANSACTION-00",
+		}
 	}
 	// the following setattr may be included in the logs only, no need for the span. tx.id can be included in the metadata of
 	// the error message in the case of errors.
