@@ -206,19 +206,27 @@ func (logger *OtelLogger) GetLogger() *slog.Logger {
 	)
 }
 
-func (l *OtelLogger) LogError(span otelTrace.Span, ctx context.Context, err error, args ...any) error {
-	span.RecordError(err)
+func (l *OtelLogger) LogError(ctx context.Context, err error, args ...any) error {
+	// Obviously we need to check the nullability of GetSpanFromContext
+	l.GetSpanFromContext(ctx).RecordError(err)
 	l.GetLogger().ErrorContext(ctx, err.Error(), args...)
 	return err
 }
 
-func (l *OtelLogger) LogErrorMsg(span otelTrace.Span, ctx context.Context, msg Message) error {
-	span.RecordError(errors.New(msg.Stringify()))
+func (l *OtelLogger) LogErrorMsg(ctx context.Context, msg Message) error {
+	// Obviously we need to check the nullability of GetSpanFromContext
+	l.GetSpanFromContext(ctx).RecordError(errors.New(msg.Stringify()))
 	l.GetLogger().ErrorContext(ctx, msg.Stringify(), "meta_info", msg.MetaInfo)
 	return errors.New(msg.Stringify())
 }
 
-func (l *OtelLogger) LogWarn(span otelTrace.Span) {}
+func (l *OtelLogger) LogWarn() {}
+func (l *OtelLogger) GetSpanFromContext(ctx context.Context) otelTrace.Span {
+	return otelTrace.SpanFromContext(ctx)
+}
+func (l *OtelLogger) SpanSetAttr(ctx context.Context, attrs ...attribute.KeyValue) {
+	l.GetSpanFromContext(ctx).SetAttributes(attrs...)
+}
 func (l *OtelLogger) LogInfo(ctx context.Context, msg string, args ...any) {
 	l.GetLogger().InfoContext(ctx, msg, args...)
 }

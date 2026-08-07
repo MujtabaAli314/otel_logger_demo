@@ -9,7 +9,6 @@ import (
 	"github.com/oteldemo/logger"
 	"github.com/oteldemo/service1-frontend/types"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // FraudClient abstracts the call the frontend makes to the fraud service
@@ -36,8 +35,7 @@ func (c *fraudClient) AssessFraud(ctx context.Context, userID uint, txs []types.
 	url := fmt.Sprintf("%s/api/v1/fraud/assess", c.baseURL)
 	// Record to the span created by the controller and threaded down via
 	// the context. The repository does not start its own span.
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(
+	c.logger.SpanSetAttr(ctx,
 		attribute.String("fraud_service.assess.url", url),
 		attribute.Int("fraud_service.assess.tx_count", len(txs)),
 	)
@@ -45,9 +43,9 @@ func (c *fraudClient) AssessFraud(ctx context.Context, userID uint, txs []types.
 	var assessment types.FraudAssessment
 	body := assessRequest{UserID: userID, Transactions: txs}
 	if err := doJSON(ctx, http.MethodPost, url, body, &assessment); err != nil {
-		return nil, c.logger.LogError(span, ctx, errors.New("fraud service assess failed"), "url", url, "err", err.Error())
+		return nil, c.logger.LogError(ctx, errors.New("fraud service assess failed"), "url", url, "err", err.Error())
 	}
-	span.SetAttributes(
+	c.logger.SpanSetAttr(ctx,
 		attribute.String("fraud_service.assess.risk_level", assessment.RiskLevel),
 		attribute.Int("fraud_service.assess.risk_score", assessment.RiskScore),
 	)

@@ -6,8 +6,9 @@ import (
 	"log/slog"
 	"time"
 
-	"reflect"
 	"fmt"
+	"reflect"
+
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -161,20 +162,26 @@ func (logger *ErrorLvlLoger) GetLogger() *slog.Logger {
 	)
 }
 
-func (l *ErrorLvlLoger) LogError(span otelTrace.Span, ctx context.Context, err error, args ...any) error {
-	span.RecordError(err)
+func (l *ErrorLvlLoger) LogError(ctx context.Context, err error, args ...any) error {
+	l.GetSpanFromContext(ctx).RecordError(err)
 	l.GetLogger().ErrorContext(ctx, err.Error(), args...)
 	return err
 }
 
-func (l *ErrorLvlLoger) LogErrorMsg(span otelTrace.Span, ctx context.Context, msg Message) error {
-	span.RecordError(errors.New(msg.Stringify()))
+func (l *ErrorLvlLoger) LogErrorMsg(ctx context.Context, msg Message) error {
+	l.GetSpanFromContext(ctx).RecordError(errors.New(msg.Stringify()))
 	l.GetLogger().ErrorContext(ctx, msg.Stringify(), "meta_info", msg.MetaInfo)
 	return errors.New(msg.Stringify())
 }
 
-func (l *ErrorLvlLoger) LogWarn(span otelTrace.Span) {
+func (l *ErrorLvlLoger) LogWarn() {
 	return
+}
+func (l *ErrorLvlLoger) GetSpanFromContext(ctx context.Context) otelTrace.Span {
+	return otelTrace.SpanFromContext(ctx)
+}
+func (l *ErrorLvlLoger) SpanSetAttr(ctx context.Context, attrs ...attribute.KeyValue) {
+	l.GetSpanFromContext(ctx).SetAttributes(attrs...)
 }
 func (l *ErrorLvlLoger) LogInfo(ctx context.Context, msg string, args ...any) {
 	return
@@ -215,7 +222,6 @@ func (l *ErrorLvlLoger) ExeAndLog(span otelTrace.Span, ctx context.Context, call
 
 	return out[0].Interface(), nil
 }
-
 
 // func (l *ErrorLvlLoger) ExeAndLog(span otelTrace.Span, ctx context.Context, callee func(...any) (any, *Coerr), args ...any) (any, *Coerr) {
 // 	res, err := callee(args)

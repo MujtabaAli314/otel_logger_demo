@@ -9,7 +9,6 @@ import (
 	"github.com/oteldemo/logger"
 	"github.com/oteldemo/service1-frontend/types"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // DataClient abstracts the calls the frontend makes to the data service
@@ -33,36 +32,33 @@ func (c *dataClient) GetUser(ctx context.Context, userID uint) (*types.User, err
 	url := fmt.Sprintf("%s/api/v1/users/%d", c.baseURL, userID)
 	// Record to the span created by the controller and threaded down via
 	// the context. The repository does not start its own span.
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.String("data_service.get_user.url", url))
+	c.logger.SpanSetAttr(ctx, attribute.String("data_service.get_user.url", url))
 	c.logger.LogInfo(ctx, "calling data service", "op", "get_user", "url", url, "user_id", userID)
 	var user types.User
 	if err := doJSON(ctx, http.MethodGet, url, nil, &user); err != nil {
-		return nil, c.logger.LogError(span, ctx, errors.New("data service get_user failed"), "url", url, "err", err.Error())
+		return nil, c.logger.LogError(ctx, errors.New("data service get_user failed"), "url", url, "err", err.Error())
 	}
-	span.SetAttributes(attribute.String("data_service.get_user.email", user.Email))
+	c.logger.SpanSetAttr(ctx, attribute.String("data_service.get_user.email", user.Email))
 	c.logger.LogInfo(ctx, "data service returned user", "user_id", user.ID, "email", user.Email)
 	return &user, nil
 }
 
 func (c *dataClient) GetTransactions(ctx context.Context, userID uint) ([]types.Transaction, error) {
 	url := fmt.Sprintf("%s/api/v1/users/%d/transactions", c.baseURL, userID)
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.String("data_service.get_transactions.url", url))
+	c.logger.SpanSetAttr(ctx, attribute.String("data_service.get_transactions.url", url))
 	c.logger.LogInfo(ctx, "calling data service", "op", "get_transactions", "url", url, "user_id", userID)
 	var txs []types.Transaction
 	if err := doJSON(ctx, http.MethodGet, url, nil, &txs); err != nil {
-		return nil, c.logger.LogError(span, ctx, errors.New("data service get_transactions failed"), "url", url, "err", err.Error())
+		return nil, c.logger.LogError(ctx, errors.New("data service get_transactions failed"), "url", url, "err", err.Error())
 	}
-	span.SetAttributes(attribute.Int("data_service.get_transactions.count", len(txs)))
+	c.logger.SpanSetAttr(ctx, attribute.Int("data_service.get_transactions.count", len(txs)))
 	c.logger.LogInfo(ctx, "data service returned transactions", "user_id", userID, "count", len(txs))
 	return txs, nil
 }
 
 func (c *dataClient) CreateTransaction(ctx context.Context, userID uint, params types.CreateTransactionParams) (*types.Transaction, error) {
 	url := fmt.Sprintf("%s/api/v1/users/%d/transactions", c.baseURL, userID)
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(
+	c.logger.SpanSetAttr(ctx,
 		attribute.String("data_service.create_transaction.url", url),
 		attribute.Float64("data_service.create_transaction.amount", params.Amount),
 	)
@@ -83,11 +79,10 @@ func (c *dataClient) CreateTransaction(ctx context.Context, userID uint, params 
 	}
 	var tx types.Transaction
 	if err := doJSON(ctx, http.MethodPost, url, body, &tx); err != nil {
-		// return nil, c.logger.LogError(span, ctx, errors.New("data service create_transaction failed"), "url", url, "err", err.Error())
+		// return nil, c.logger.LogError( ctx, errors.New("data service create_transaction failed"), "url", url, "err", err.Error())
 		return nil, err
 	}
-	return nil, errors.New("CREATE TRANSACTION FAILED!!!!!!!!")
-	span.SetAttributes(attribute.Int("data_service.create_transaction.tx_id", int(tx.ID)))
+	c.logger.SpanSetAttr(ctx, attribute.Int("data_service.create_transaction.tx_id", int(tx.ID)))
 	c.logger.LogInfo(ctx, "data service created transaction", "tx_id", tx.ID)
 	return &tx, nil
 }

@@ -35,7 +35,7 @@ func (c *Controller) GetDashboard(ctx iris.Context) {
 	id, err := ctx.Params().GetUint("id")
 	if err != nil {
 		ctx.StopWithStatus(iris.StatusInternalServerError)
-		c.logger.LogError(span, spanCtx, errors.New("No id provided"), "err", err.Error())
+		c.logger.LogError(spanCtx, errors.New("No id provided"), "err", err.Error())
 		return
 	}
 	span.SetAttributes(
@@ -50,11 +50,11 @@ func (c *Controller) GetDashboard(ctx iris.Context) {
 		case errors.Is(err, usecase.ErrUserNotFound):
 			ctx.StatusCode(iris.StatusNotFound)
 			_ = ctx.JSON(types.ErrorResponse{Error: "not_found", Message: err.Error()})
-			c.logger.LogError(span, spanCtx, errors.New("uesr not found"), "user_id", id)
+			c.logger.LogError(spanCtx, errors.New("uesr not found"), "user_id", id)
 		default:
 			ctx.StatusCode(iris.StatusInternalServerError)
 			_ = ctx.JSON(types.ErrorResponse{Error: "internal_error", Message: err.Error()})
-			c.logger.LogError(span, spanCtx, errors.New("internal server error"), "user_id", id, "err", err.Error())
+			c.logger.LogError(spanCtx, errors.New("internal server error"), "user_id", id, "err", err.Error())
 		}
 		return
 	}
@@ -68,7 +68,7 @@ func (c *Controller) CreateTransaction(ctx iris.Context) {
 	id, err := ctx.Params().GetUint("id")
 	if err != nil {
 		ctx.StopWithStatus(iris.StatusInternalServerError)
-		c.logger.LogError(span, spanCtx, errors.New("No id provided"), "err", err.Error())
+		c.logger.LogError(spanCtx, errors.New("No id provided"), "err", err.Error())
 		return
 	}
 	span.SetAttributes(
@@ -86,7 +86,7 @@ func (c *Controller) CreateTransaction(ctx iris.Context) {
 	if err := ctx.ReadJSON(&body); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_ = ctx.JSON(types.ErrorResponse{Error: "bad_request", Message: err.Error()})
-		c.logger.LogError(span, spanCtx, errors.New("invalid request body"), "err", err.Error())
+		c.logger.LogError(spanCtx, errors.New("invalid request body"), "err", err.Error())
 		return
 	}
 	c.logger.LogInfo(spanCtx, "create transaction request received", "user_id", id, "amount", body.Amount)
@@ -106,7 +106,7 @@ func (c *Controller) CreateTransaction(ctx iris.Context) {
 		}
 		ctx.StatusCode(status)
 		_ = ctx.JSON(types.ErrorResponse{Error: "internal_error", Message: cerr.Error()})
-		c.logger.LogError(span, spanCtx, errors.New("create transaction failed"), "user_id", id, "err", err.Error())
+		c.logger.LogError(spanCtx, errors.New("create transaction failed"), "user_id", id, "err", err.Error())
 		return
 	}
 	span.SetAttributes(attribute.Int("controller.tx_id", int(tx.ID)))

@@ -9,7 +9,6 @@ import (
 	"github.com/oteldemo/service1-frontend/repository"
 	"github.com/oteldemo/service1-frontend/types"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // ErrUserNotFound is returned when the data service reports the user
@@ -37,10 +36,9 @@ func (u *dashboardUsecase) GetDashboard(ctx context.Context, params types.GetDas
 	// context. The usecase records to that same span (it does not start
 	// its own) and forwards the context to the repository so the repo
 	// records to the same span too.
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.Int("usecase.user_id", int(params.UserID)))
+	u.logger.SpanSetAttr(ctx, attribute.Int("usecase.user_id", int(params.UserID)))
 	u.logger.LogInfo(ctx, "Heeeey we reached the usecase!!!!!", "user_id", params.UserID)
-	span.SetAttributes(attribute.KeyValue{Key: "UNIQUEKEY", Value: attribute.StringValue("UNIQUEVALUE")})
+	u.logger.SpanSetAttr(ctx, attribute.KeyValue{Key: "UNIQUEKEY", Value: attribute.StringValue("UNIQUEVALUE")})
 	// Fan out to the data service for the user profile and transaction
 	// history concurrently. The fraud assessment depends on the
 	// transactions, so it runs afterwards.
@@ -66,8 +64,8 @@ func (u *dashboardUsecase) GetDashboard(ctx context.Context, params types.GetDas
 	if uErr != nil {
 		if repository.IsNotFound(uErr) {
 			// For the following error I think it is better recorded within the repo (See the comment below)
-			// u.logger.LogError(span, ctx, errors.New("usecase calling repo isnotfound and got an error"), "user_id", params.UserID)
-			return nil, u.logger.LogErrorMsg(span, ctx, logger.Message{
+			// u.logger.LogError( ctx, errors.New("usecase calling repo isnotfound and got an error"), "user_id", params.UserID)
+			return nil, u.logger.LogErrorMsg(ctx, logger.Message{
 				Code:     "DASHBOARD-USECASE-O1",
 				Msg:      "usecase calling repo isnotfound and got an error" + tErr.Error(),
 				Ref:      "DASHBOARD-USECASE-GetDashboard",
@@ -75,8 +73,8 @@ func (u *dashboardUsecase) GetDashboard(ctx context.Context, params types.GetDas
 			})
 		}
 		// Here is the opposite case where there is no call to the repo so we should register the error here
-		// u.logger.LogError(span, ctx, errors.New("usecase throwing an error"+uErr.Error()))
-		return nil, u.logger.LogErrorMsg(span, ctx, logger.Message{
+		// u.logger.LogError( ctx, errors.New("usecase throwing an error"+uErr.Error()))
+		return nil, u.logger.LogErrorMsg(ctx, logger.Message{
 			Code:     "DASHBOARD-USECASE-O2",
 			Msg:      "usecase throwing an error" + uErr.Error(),
 			Ref:      "DASHBOARD-USECASE-GetDashboard",
@@ -84,8 +82,8 @@ func (u *dashboardUsecase) GetDashboard(ctx context.Context, params types.GetDas
 		})
 	}
 	if tErr != nil {
-		// u.logger.LogError(span, ctx, errors.New("usecase throwing an error"+tErr.Error()))
-		return nil, u.logger.LogErrorMsg(span, ctx, logger.Message{
+		// u.logger.LogError( ctx, errors.New("usecase throwing an error"+tErr.Error()))
+		return nil, u.logger.LogErrorMsg(ctx, logger.Message{
 			Code:     "DASHBOARD-USECASE-O3",
 			Msg:      "usecase throwing an error" + tErr.Error(),
 			Ref:      "DASHBOARD-USECASE-GetDashboard",
@@ -93,13 +91,13 @@ func (u *dashboardUsecase) GetDashboard(ctx context.Context, params types.GetDas
 		})
 	}
 
-	span.SetAttributes(attribute.Int("usecase.tx_count", len(txs)))
+	u.logger.SpanSetAttr(ctx, attribute.Int("usecase.tx_count", len(txs)))
 	u.logger.LogInfo(ctx, "fetched user and transactions", "user_id", params.UserID, "tx_count", len(txs))
 
 	assessment, err := u.fraud.AssessFraud(ctx, params.UserID, txs)
 	if err != nil {
-		// u.logger.LogError(span, ctx, errors.New("usecase throwing an error"+err.Error()))
-		return nil, u.logger.LogErrorMsg(span, ctx, logger.Message{
+		// u.logger.LogError( ctx, errors.New("usecase throwing an error"+err.Error()))
+		return nil, u.logger.LogErrorMsg(ctx, logger.Message{
 			Code:     "DASHBOARD-USECASE-O4",
 			Msg:      "usecase throwing an error" + err.Error(),
 			Ref:      "DASHBOARD-USECASE-GetDashboard",
@@ -107,7 +105,7 @@ func (u *dashboardUsecase) GetDashboard(ctx context.Context, params types.GetDas
 		})
 	}
 
-	span.SetAttributes(
+	u.logger.SpanSetAttr(ctx,
 		attribute.String("usecase.fraud.risk_level", assessment.RiskLevel),
 		attribute.Int("usecase.fraud.risk_score", assessment.RiskScore),
 	)

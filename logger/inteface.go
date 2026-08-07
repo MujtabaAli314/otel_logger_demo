@@ -12,6 +12,7 @@ import (
 	"context"
 	"log/slog"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/log"
 	traceSdk "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
@@ -23,10 +24,12 @@ type Logger interface {
 	GetLogProvider() *log.LoggerProvider
 	GetLogger() *slog.Logger
 	StartSpan(ctx context.Context, name string) (context.Context, trace.Span)
-	LogError(span trace.Span, ctx context.Context, err error, args ...any) error
-	LogErrorMsg(span trace.Span, ctx context.Context, msg Message) error
-	LogWarn(span trace.Span)
+	LogError(ctx context.Context, err error, args ...any) error
+	LogErrorMsg(ctx context.Context, msg Message) error
+	LogWarn()
 	LogInfo(ctx context.Context, msg string, args ...any)
+	GetSpanFromContext(ctx context.Context) trace.Span
+	SpanSetAttr(ctx context.Context, attrs ...attribute.KeyValue)
 }
 
 func NewLogger(cfg *Config) Logger {
@@ -72,17 +75,4 @@ type Coerr struct {
 
 func (err Coerr) Error() string {
 	return err.Msg
-}
-
-func ExeAngLog[paramT, respT any](l Logger, span trace.Span, ctx context.Context, callee func(context.Context, paramT) (*respT, *Coerr), params paramT) (*respT, error) {
-	res, err := callee(ctx, params)
-	if err != nil {
-		l.LogErrorMsg(span, ctx, Message{
-			Code: err.Code,
-			Msg:  err.Msg,
-			Ref:  err.Ref,
-		})
-		return nil, err
-	}
-	return res, nil
 }

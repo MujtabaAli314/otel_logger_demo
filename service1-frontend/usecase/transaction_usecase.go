@@ -7,7 +7,6 @@ import (
 	"github.com/oteldemo/service1-frontend/repository"
 	"github.com/oteldemo/service1-frontend/types"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // TransactionUsecase contains the business rules around creating
@@ -29,8 +28,7 @@ func (u *transactionUsecase) CreateTransaction(ctx context.Context, params types
 	// The span is created by the controller and threaded down via the
 	// context. The usecase records to that same span and forwards the
 	// context to the repository.
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.Int("usecase.user_id", int(params.UserID)))
+	u.logger.SpanSetAttr(ctx, attribute.Int("usecase.user_id", int(params.UserID)))
 	u.logger.LogInfo(ctx, "create transaction usecase", "user_id", params.UserID, "amount", params.Amount)
 
 	tx, err := u.data.CreateTransaction(ctx, params.UserID, params)
@@ -44,7 +42,7 @@ func (u *transactionUsecase) CreateTransaction(ctx context.Context, params types
 	}
 	// the following setattr may be included in the logs only, no need for the span. tx.id can be included in the metadata of
 	// the error message in the case of errors.
-	span.SetAttributes(attribute.Int("usecase.tx_id", int(tx.ID)))
+	u.logger.SpanSetAttr(ctx, attribute.Int("usecase.tx_id", int(tx.ID)))
 	u.logger.LogInfo(ctx, "transaction created", "tx_id", tx.ID)
 	return tx, nil
 }

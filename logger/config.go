@@ -6,7 +6,7 @@ const (
 	ERRORLVL = 1
 	WARNLVL  = 2
 	INFOLVL  = 4 // You might ask, where the hell is the 3. Well, 4 has 1 only in the thrid bit (100). So each level has only a single 1 in its binary representation.
-	// Now how is this useful? I don't know to be honest, just thought it is a bit cooler.
+	// Now how is this useful? It is not, just thought it is a bit cooler.
 )
 
 type Config struct {
